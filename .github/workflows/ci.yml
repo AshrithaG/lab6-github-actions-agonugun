@@ -30,5 +30,12 @@ jobs:
         run: |
           python -m pytest -q --cov=prediction_pipeline_demo --cov-report=term-missing --cov-fail-under=60
       
+      - name: Run demo pipeline and verify output
+        env:
+          PYTHONPATH: ${{ github.workspace }}
+        run: |
+          python prediction_pipeline_demo.py | tee demo_output.txt
+          grep -q "Trained model score is:" demo_output.txt
+
       # TODO: Add a step here to run the demo pipeline end-to-end
       # The goal is to execute prediction_pipeline_demo.py so CI logs show the model’s R^2 score.
