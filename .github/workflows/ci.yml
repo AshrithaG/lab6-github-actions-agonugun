@@ -1,12 +1,21 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+    branches: ["**"]
+  workflow_dispatch:
+
 jobs:
   test:
-    runs-on: [self-hosted, label-1]
+    runs-on: [self-hosted, label-1]   # ← must match your runner label
+
     env:
       PYTHONPATH: ${{ github.workspace }}
 
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
       - name: Show Python
         run: |
