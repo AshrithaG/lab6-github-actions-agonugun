@@ -14,24 +14,19 @@ def data_preparation(df: pd.DataFrame):
     feature_df = pd.get_dummies(
         df.loc[:, features],
         columns=["furnishingstatus"]
-    )
-    target_series = df.loc[:, target]
+    ).astype(float)
+
+    target_series = df[target].astype(float)
     return feature_df, target_series
 
-def data_split(features: pd.DataFrame, target: pd.Series):
-    """
-    Deterministic split with random_state for reproducibility.
-    Returns X_train, X_test, y_train, y_test.
-    """
+def data_split(feature_df: pd.DataFrame, target_series: pd.Series, test_size: float = 0.2, random_state: int = 42):
     X_train, X_test, y_train, y_test = train_test_split(
-        features,
-        target,
-        test_size=0.33,
-        random_state=42
+        feature_df.values, target_series.values,
+        test_size=test_size, random_state=random_state
     )
     return X_train, X_test, y_train, y_test
 
-def train_model(X_train: np.ndarray, y_train: np.ndarray):
+def train_model(X_train: np.ndarray, y_train: np.ndarray) -> LinearRegression:
     """Train a simple Linear Regression model."""
     reg = LinearRegression().fit(X_train, y_train)
     return reg
