@@ -1,7 +1,17 @@
 import pytest
 import pandas as pd
 import numpy as np
-from prediction_pipeline_demo import data_preparation, data_split, train_model, eval_model
+import math
+import os
+import runpy
+import pathlib
+
+from prediction_pipeline_demo import (
+    data_preparation,
+    data_split,
+    train_model,
+    eval_model,
+)
 
 @pytest.fixture
 def housing_data_sample():
@@ -16,60 +26,57 @@ def housing_data_sample():
         "guestroom": "no",
         "basement": "no",
         "hotwaterheating": "no",
-        "airconditioning": "yes",
+        "airconditioning": "no",
         "parking": 2,
-        "prefarea": "yes",
-        "furnishingstatus": "furnished",
+        "prefarea": "no",
+        "furnishingstatus": "semi-furnished",
     }
-    # Create 10 slightly varied rows
-    for i in range(10):
-        rows.append({
-            **base,
-            "price": base["price"] - i * 100_000,          # 13.3M, 13.2M, ...
-            "area": base["area"] + i * 150,                # 7420, 7570, ...
-            "bedrooms": 3 + (i % 3),                       # 3,4,5 repeating
-            "bathrooms": 2 + (i % 3),                      # 2,3,4 repeating
-            "stories": 2 + (i % 3),                        # 2,3,4 repeating
-            "mainroad": "yes" if i % 2 == 0 else "no",
-            "guestroom": "no" if i % 3 else "yes",
-            "basement": "no" if (i+1) % 3 else "yes",
-            "hotwaterheating": "no" if i % 4 else "yes",
-            "airconditioning": "yes" if i % 5 else "no",
-            "parking": 1 + (i % 3),                        # 1,2,3 repeating
-            "prefarea": "yes" if i % 2 == 0 else "no",
-            "furnishingstatus": "furnished" if i % 2 == 0 else "unfurnished",
-        })
+    for i in range(30):
+        r = base.copy()
+        r["price"] += i * 1000
+        r["area"] += i * 10
+        r["furnishingstatus"] = ["unfurnished", "semi-furnished", "furnished"][i % 3]
+        rows.append(r)
     return pd.DataFrame(rows)
-
-def test_data_preparation(housing_data_sample):
-    feature_df, target_series = data_preparation(housing_data_sample)
-    # Target and datapoints have same length
-    assert feature_df.shape[0] == len(target_series)
-    # Features are numeric/bool after one-hot
-    numeric_bool_cols = feature_df.select_dtypes(include=(np.number, bool)).shape[1]
-    assert feature_df.shape[1] == numeric_bool_cols
 
 @pytest.fixture
 def feature_target_sample(housing_data_sample):
-    feature_df, target_series = data_preparation(housing_data_sample)
-    return (feature_df, target_series)
+    X, y = data_preparation(housing_data_sample)
+    return X, y
 
-def test_data_split_returns_four_parts(feature_target_sample):
-    # TODO(1): Uncomment the line below to get the split
-    # parts = data_split(*feature_target_sample)
-    # TODO(2): Add assertions to check:
-    #   - parts is a tuple
-    #   - tuple has exactly 4 elements
-    pass
+def test_feature_columns_and_types(feature_target_sample):
+    X, y = feature_target_sample
+    expected = {
+        "furnishingstatus_furnished",
+        "furnishingstatus_semi-furnished",
+        "furnishingstatus_unfurnished",
+    }
+    assert expected.issubset(set(X.columns))
+    assert len(X) == len(y)
+    assert all(np.issubdtype(dt, np.number) for dt in X.dtypes)
 
+def test_data_split_shapes(feature_target_sample):
+    X_train, X_test, y_train, y_test = data_split(*feature_target_sample)
+    assert isinstance((X_train, X_test, y_train, y_test), tuple)
+    assert len((X_train, X_test, y_train, y_test)) == 4
+    assert X_train.shape[0] + X_test.shape[0] == feature_target_sample[0].shape[0]
+    assert y_train.shape[0] + y_test.shape[0] == feature_target_sample[1].shape[0]
 
 def test_end_to_end_train_and_eval(feature_target_sample):
-    # TODO(3): Uncomment these lines to train and evaluate the model
-    # X_train, X_test, y_train, y_test = data_split(*feature_target_sample)
-    # model = train_model(X_train, y_train)
-    # score = eval_model(X_test, y_test, model)
-    # TODO(4): Add assertions to check:
-    #   - score is a float
-    #   - score is finite (not NaN or inf)
-    pass
-    
+    X_train, X_test, y_train, y_test = data_split(*feature_target_sample)
+    model = train_model(X_train, y_train)
+    score = eval_model(X_test, y_test, model)
+    assert isinstance(score, float)
+    assert math.isfinite(score)
+
+def test_main_block_runs_and_prints_score(capsys):
+    """Execute the script so coverage captures the __main__ block."""
+    project_root = pathlib.Path(__file__).resolve().parents[1]
+    cwd = os.getcwd()
+    try:
+        os.chdir(project_root)
+        runpy.run_path(str(project_root / "prediction_pipeline_demo.py"), run_name="__main__")
+    finally:
+        os.chdir(cwd)
+    out = capsys.readouterr().out
+    assert "Trained model score is:" in out
