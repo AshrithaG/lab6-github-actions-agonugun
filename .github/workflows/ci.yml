@@ -1,48 +1,31 @@
-name: CI
-
-on:
-  pull_request:
-    branches: [ "main" ]
-  push:
-    branches: [ "main" ]
-
 jobs:
   test:
     runs-on: [self-hosted, label-1]
     env:
-      AGENT_TOOLSDIRECTORY: ${{ github.workspace }}/.toolcache
-      RUNNER_TOOL_CACHE:    ${{ github.workspace }}/.toolcache
-      PYTHONPATH:           ${{ github.workspace }}
+      PYTHONPATH: ${{ github.workspace }}
 
     steps:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Prepare tool cache
-        uses: mkdir -p "$(AGENT_TOOLSDIRECTORY)"
-
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: "3.11"
+      - name: Show Python
+        run: |
+          python3 --version || true
+          which python3 || true
 
       - name: Install dependencies
         run: |
-          python -m pip install --upgrade pip
-          pip install -r requirements.txt
+          PY=python3
+          $PY -m pip install --upgrade pip
+          $PY -m pip install -r requirements.txt
 
       - name: Run tests with coverage
-        env:
-          PYTHONPATH: ${{ github.workspace }}
         run: |
-          python -m pytest -q --cov=prediction_pipeline_demo --cov-report=term-missing --cov-fail-under=60
-      
-      - name: Run demo pipeline and verify output
-        env:
-          PYTHONPATH: ${{ github.workspace }}
-        run: |
-          python prediction_pipeline_demo.py | tee demo_output.txt
-          grep -q "Trained model score is:" demo_output.txt
+          PY=python3
+          $PY -m pytest -q --cov=prediction_pipeline_demo --cov-report=term-missing --cov-fail-under=60
 
-      # TODO: Add a step here to run the demo pipeline end-to-end
-      # The goal is to execute prediction_pipeline_demo.py so CI logs show the model’s R^2 score.
+      - name: Run demo pipeline and verify output
+        run: |
+          PY=python3
+          $PY prediction_pipeline_demo.py | tee demo_output.txt
+          grep -q "Trained model score is:" demo_output.txt
