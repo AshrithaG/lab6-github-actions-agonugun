@@ -9,32 +9,35 @@ on:
 
 jobs:
   test:
-    runs-on: [self-hosted, label-1]   # ← must match your runner label
-
-    env:
-      PYTHONPATH: ${{ github.workspace }}
+    runs-on: [self-hosted, label-1]
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v4
 
-      - name: Show Python
+      - name: Ensure Python 3.11 is installed (Homebrew)
         run: |
-          python3 --version || true
-          which python3 || true
+          if ! command -v brew >/dev/null 2>&1; then
+            echo "Homebrew not found on this runner"; exit 1
+          fi
+          brew list --versions python@3.11 || brew install python@3.11
+          echo "PY311=$(brew --prefix python@3.11)/bin/python3.11" >> "$GITHUB_ENV"
 
-      - name: Install dependencies
+      - name: Create venv and install deps
         run: |
-          PY=python3
-          $PY -m pip install --upgrade pip
-          $PY -m pip install -r requirements.txt
+          "$PY311" -m venv .venv
+          .venv/bin/python -m pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
 
       - name: Run tests with coverage
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          PY=python3
-          $PY -m pytest -q --cov=prediction_pipeline_demo --cov-report=term-missing --cov-fail-under=60
+          .venv/bin/python -m pytest -q --cov=prediction_pipeline_demo --cov-report=term-missing --cov-fail-under=60
 
       - name: Run demo pipeline and verify output
+        env:
+          PYTHONPATH: ${{ github.workspace }}
         run: |
-          PY=python3
-          $PY prediction_pipeline_demo.py | tee demo_output.txt
+          .venv/bin/python prediction_pipeline_demo.py | tee demo_output.txt
           grep -q "Trained model score is:" demo_output.txt
